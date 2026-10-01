@@ -1353,13 +1353,10 @@ EXPORT void CALL GetKeys(int Control, BUTTONS* Keys)
     }
 #endif // VRU
 
-    // when we've matched a hotkey,
-    // we don't need to check anything
-    // else
-    if (check_hotkeys(Control))
-    {
-        return;
-    }
+    // Process hotkeys without suppressing the emulated controller state.
+    // Returning early here caused every held N64 input to be released for
+    // the poll in which a controller hotkey matched.
+    check_hotkeys(Control);
 
     Keys->A_BUTTON     = get_button_state(profile, &profile->Button_A);
     Keys->B_BUTTON     = get_button_state(profile, &profile->Button_B);
