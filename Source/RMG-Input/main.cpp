@@ -1336,6 +1336,19 @@ EXPORT void CALL GetKeys(int Control, BUTTONS* Keys)
         return;
     }
 
+    // Refresh physical controller state at the point where the emulated
+    // controller is polled. The core pumps SDL events at VI boundaries,
+    // which is not guaranteed to coincide with N64 controller polls.
+    // Both update calls are safe to use from any thread in SDL3.
+    if (profile->SDLJoystick != nullptr)
+    {
+        SDL_UpdateJoysticks();
+    }
+    if (profile->SDLGamepad != nullptr)
+    {
+        SDL_UpdateGamepads();
+    }
+
 #ifdef VRU
     // when we're emulating the VRU,
     // we need to check the mic state
