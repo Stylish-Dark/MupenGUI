@@ -139,17 +139,6 @@ struct InputProfile
     bool Hotkey_LimitFPS_Pressed = false;
     InputMapping Hotkey_LimitFPS;
     bool Hotkey_SpeedFactor_Pressed = false;
-    InputMapping Hotkey_SpeedFactor25;
-    InputMapping Hotkey_SpeedFactor50;
-    InputMapping Hotkey_SpeedFactor75;
-    InputMapping Hotkey_SpeedFactor100;
-    InputMapping Hotkey_SpeedFactor125;
-    InputMapping Hotkey_SpeedFactor150;
-    InputMapping Hotkey_SpeedFactor175;
-    InputMapping Hotkey_SpeedFactor200;
-    InputMapping Hotkey_SpeedFactor225;
-    InputMapping Hotkey_SpeedFactor250;
-    InputMapping Hotkey_SpeedFactor275;
     InputMapping Hotkey_SpeedFactor300;
     bool Hotkey_SaveState_Pressed = false;
     InputMapping Hotkey_SaveState;
@@ -352,17 +341,6 @@ static void load_settings(void)
         LOAD_INPUT_MAPPING(Hotkey_Resume,         Input_Hotkey_Resume);
         LOAD_INPUT_MAPPING(Hotkey_Screenshot,     Input_Hotkey_Screenshot);
         LOAD_INPUT_MAPPING(Hotkey_LimitFPS,       Input_Hotkey_LimitFPS);
-        LOAD_INPUT_MAPPING(Hotkey_SpeedFactor25,  Input_Hotkey_SpeedFactor25);
-        LOAD_INPUT_MAPPING(Hotkey_SpeedFactor50,  Input_Hotkey_SpeedFactor50);
-        LOAD_INPUT_MAPPING(Hotkey_SpeedFactor75,  Input_Hotkey_SpeedFactor75);
-        LOAD_INPUT_MAPPING(Hotkey_SpeedFactor100, Input_Hotkey_SpeedFactor100);
-        LOAD_INPUT_MAPPING(Hotkey_SpeedFactor125, Input_Hotkey_SpeedFactor125);
-        LOAD_INPUT_MAPPING(Hotkey_SpeedFactor150, Input_Hotkey_SpeedFactor150);
-        LOAD_INPUT_MAPPING(Hotkey_SpeedFactor175, Input_Hotkey_SpeedFactor175);
-        LOAD_INPUT_MAPPING(Hotkey_SpeedFactor200, Input_Hotkey_SpeedFactor200);
-        LOAD_INPUT_MAPPING(Hotkey_SpeedFactor225, Input_Hotkey_SpeedFactor225);
-        LOAD_INPUT_MAPPING(Hotkey_SpeedFactor250, Input_Hotkey_SpeedFactor250);
-        LOAD_INPUT_MAPPING(Hotkey_SpeedFactor275, Input_Hotkey_SpeedFactor275);
         LOAD_INPUT_MAPPING(Hotkey_SpeedFactor300, Input_Hotkey_SpeedFactor300);
         LOAD_INPUT_MAPPING(Hotkey_SaveState,      Input_Hotkey_SaveState);
         LOAD_INPUT_MAPPING(Hotkey_LoadState,      Input_Hotkey_LoadState);
@@ -995,18 +973,20 @@ static bool check_hotkeys(int Control)
         return false;
     }
 
+    bool matched = false;
+
 #define DEFINE_HOTKEY(mapping, pressed, function, function2) \
     state = get_button_state(profile, &profile->mapping, true); \
     if (state) \
     { \
+        matched = true; \
         if (!profile->pressed) \
         { \
             profile->pressed = true; \
             function; \
         } \
-        return true; \
     } \
-    else if (!state && profile->pressed) \
+    else if (profile->pressed) \
     { \
         function2; \
         profile->pressed = false; \
@@ -1018,18 +998,7 @@ static bool check_hotkeys(int Control)
     DEFINE_HOTKEY(Hotkey_Resume,                Hotkey_Resume_Pressed,        CoreIsEmulationPaused() ? CoreResumeEmulation() : CorePauseEmulation(), );
     DEFINE_HOTKEY(Hotkey_Screenshot,            Hotkey_Screenshot_Pressed,    CoreTakeScreenshot(), );
     DEFINE_HOTKEY(Hotkey_LimitFPS,              Hotkey_LimitFPS_Pressed,      CoreSetSpeedLimiterState(!CoreIsSpeedLimiterEnabled()), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor25,         Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(25), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor50,         Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(50), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor75,         Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(75), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor100,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(100), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor125,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(125), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor150,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(150), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor175,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(175), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor200,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(200), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor225,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(225), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor250,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(250), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor275,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(275), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor300,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(300), );
+    DEFINE_HOTKEY(Hotkey_SpeedFactor300,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(400), CoreSetSpeedFactor(100));
     DEFINE_HOTKEY(Hotkey_SaveState,             Hotkey_SaveState_Pressed,     CoreSaveState(), );
     DEFINE_HOTKEY(Hotkey_LoadState,             Hotkey_LoadState_Pressed,     CoreLoadSaveState(), );
     DEFINE_HOTKEY(Hotkey_GSButton,              Hotkey_GSButton_Pressed,      CorePressGamesharkButton(true), CorePressGamesharkButton(false));
@@ -1051,7 +1020,7 @@ static bool check_hotkeys(int Control)
     DEFINE_HOTKEY(Hotkey_Fullscreen,            Hotkey_Fullscreen_Pressed,    CoreToggleFullscreen(), );
 
 #undef DEFINE_HOTKEY
-    return false;
+    return matched;
 }
 
 static void sdl_init()

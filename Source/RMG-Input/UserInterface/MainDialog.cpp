@@ -20,6 +20,33 @@ Q_DECLARE_METATYPE(InputDevice);
 
 using namespace UserInterface;
 
+static SDL_Scancode qt_key_event_to_sdl_scancode(QKeyEvent* event)
+{
+#ifdef Q_OS_WIN
+    const quint32 nativeScanCode = event->nativeScanCode();
+    const quint32 nativeVirtualKey = event->nativeVirtualKey();
+
+    if (event->key() == Qt::Key_Shift)
+        return nativeScanCode == 0x36 ? SDL_SCANCODE_RSHIFT : SDL_SCANCODE_LSHIFT;
+    if (event->key() == Qt::Key_Control)
+    {
+        if (nativeScanCode == 0x11D || nativeVirtualKey == 0xA3) return SDL_SCANCODE_RCTRL;
+        return SDL_SCANCODE_LCTRL;
+    }
+    if (event->key() == Qt::Key_Alt || event->key() == Qt::Key_AltGr)
+    {
+        if (nativeScanCode == 0x138 || nativeVirtualKey == 0xA5 || event->key() == Qt::Key_AltGr) return SDL_SCANCODE_RALT;
+        return SDL_SCANCODE_LALT;
+    }
+    if (event->key() == Qt::Key_Meta || event->key() == Qt::Key_Super_L || event->key() == Qt::Key_Super_R)
+    {
+        if (nativeScanCode == 0x15C || nativeVirtualKey == 0x5C || event->key() == Qt::Key_Super_R) return SDL_SCANCODE_RGUI;
+        return SDL_SCANCODE_LGUI;
+    }
+#endif
+    return static_cast<SDL_Scancode>(Utilities::QtKeyToSdl3Key(event->key()));
+}
+
 MainDialog::MainDialog(QWidget* parent, Thread::SDLThread* sdlThread, bool romConfig, CoreRomHeader romHeader, CoreRomSettings romSettings) : QDialog(parent)
 {
     qRegisterMetaType<InputDevice>();
@@ -354,14 +381,14 @@ void MainDialog::on_SDLThread_DeviceSearchFinished(void)
 
 void MainDialog::on_EventFilter_KeyPressed(QKeyEvent *event)
 {
-    int key = Utilities::QtKeyToSdl3Key(event->key());
+    SDL_Scancode key = qt_key_event_to_sdl_scancode(event);
     int mod = Utilities::QtModKeyToSdl3ModKey(event->modifiers());
 
     SDL_KeyboardEvent keyboardEvent;
     keyboardEvent.down = true;
     keyboardEvent.type = SDL_EVENT_KEY_DOWN;
-    keyboardEvent.scancode = static_cast<SDL_Scancode>(key);
-    keyboardEvent.key = static_cast<SDL_Keycode>(key);
+    keyboardEvent.scancode = key;
+    keyboardEvent.key = SDL_GetKeyFromScancode(key, SDL_KMOD_NONE, false);
     keyboardEvent.mod = mod;
 
     SDL_Event sdlEvent;
@@ -373,14 +400,14 @@ void MainDialog::on_EventFilter_KeyPressed(QKeyEvent *event)
 
 void MainDialog::on_EventFilter_KeyReleased(QKeyEvent *event)
 {
-    int key = Utilities::QtKeyToSdl3Key(event->key());
+    SDL_Scancode key = qt_key_event_to_sdl_scancode(event);
     int mod = Utilities::QtModKeyToSdl3ModKey(event->modifiers());
 
     SDL_KeyboardEvent keyboardEvent;
     keyboardEvent.down = false;
     keyboardEvent.type = SDL_EVENT_KEY_UP;
-    keyboardEvent.scancode = static_cast<SDL_Scancode>(key);
-    keyboardEvent.key = static_cast<SDL_Keycode>(key);
+    keyboardEvent.scancode = key;
+    keyboardEvent.key = SDL_GetKeyFromScancode(key, SDL_KMOD_NONE, false);
     keyboardEvent.mod = mod;
 
     SDL_Event sdlEvent;
