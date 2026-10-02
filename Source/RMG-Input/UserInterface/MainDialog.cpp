@@ -410,7 +410,7 @@ void MainDialog::on_EventFilter_KeyPressed(QKeyEvent *event)
 
 void MainDialog::on_EventFilter_KeyReleased(QKeyEvent *event)
 {
-    int key = Utilities::QtKeyToSdl3Key(event->key());
+    SDL_Scancode key = qt_key_event_to_sdl_scancode(event);
     int mod = Utilities::QtModKeyToSdl3ModKey(event->modifiers());
 
     SDL_KeyboardEvent keyboardEvent;
