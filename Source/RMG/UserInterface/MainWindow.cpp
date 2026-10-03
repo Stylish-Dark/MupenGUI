@@ -1479,7 +1479,17 @@ void MainWindow::on_EventFilter_KeyPressed(QKeyEvent *event)
         return;
     }
 
-    if (!event->isAutoRepeat() && !CoreHasInitNetplay() && is_fast_forward_key_event(event))
+    // Qt emits synthetic KeyRelease + KeyPress pairs while a key is held
+    // for keyboard auto-repeat. Forwarding those releases to Mupen creates
+    // a tiny false-up window that an N64 controller poll can observe.
+    // Only the initial physical press and final physical release should
+    // mutate emulated controller state.
+    if (event->isAutoRepeat())
+    {
+        return;
+    }
+
+    if (!CoreHasInitNetplay() && is_fast_forward_key_event(event))
     {
         if (!this->ui_FastForwardHeld && CoreSetSpeedFactor(400))
         {
@@ -1502,7 +1512,13 @@ void MainWindow::on_EventFilter_KeyReleased(QKeyEvent *event)
         return;
     }
 
-    if (!event->isAutoRepeat() && this->ui_FastForwardHeld && event->key() == this->ui_FastForwardTriggerKey)
+    // Ignore the synthetic KeyRelease half of Qt's auto-repeat pair.
+    if (event->isAutoRepeat())
+    {
+        return;
+    }
+
+    if (this->ui_FastForwardHeld && event->key() == this->ui_FastForwardTriggerKey)
     {
         CoreSetSpeedFactor(100);
         this->ui_FastForwardHeld = false;
