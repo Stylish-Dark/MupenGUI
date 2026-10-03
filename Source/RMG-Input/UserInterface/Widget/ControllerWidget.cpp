@@ -41,8 +41,8 @@ ControllerWidget::ControllerWidget(QWidget* parent, EventFilter* eventFilter) : 
     this->mainLayout->removeItem(this->horizontalLayout_4);
     delete this->horizontalLayout_4;
     AlignCenterLayout* layout = new AlignCenterLayout(this->mainLayout->spacing());
-    layout->addWidget(profileGroupBox);
     layout->addWidget(inputDeviceGroupBox);
+    layout->addWidget(profileGroupBox);
     layout->addWidget(deadZoneGroupBox);
     this->mainLayout->insertLayout(0, layout);
 
@@ -118,17 +118,6 @@ ControllerWidget::ControllerWidget(QWidget* parent, EventFilter* eventFilter) : 
         { {}, {}, {}, {}, SettingsID::Input_Hotkey_Resume_InputType, SettingsID::Input_Hotkey_Resume_Name, SettingsID::Input_Hotkey_Resume_Data, SettingsID::Input_Hotkey_Resume_ExtraData },
         { {}, {}, {}, {}, SettingsID::Input_Hotkey_Screenshot_InputType, SettingsID::Input_Hotkey_Screenshot_Name, SettingsID::Input_Hotkey_Screenshot_Data, SettingsID::Input_Hotkey_Screenshot_ExtraData },
         { {}, {}, {}, {}, SettingsID::Input_Hotkey_LimitFPS_InputType, SettingsID::Input_Hotkey_LimitFPS_Name, SettingsID::Input_Hotkey_LimitFPS_Data, SettingsID::Input_Hotkey_LimitFPS_ExtraData },
-        { {}, {}, {}, {}, SettingsID::Input_Hotkey_SpeedFactor25_InputType, SettingsID::Input_Hotkey_SpeedFactor25_Name, SettingsID::Input_Hotkey_SpeedFactor25_Data, SettingsID::Input_Hotkey_SpeedFactor25_ExtraData },
-        { {}, {}, {}, {}, SettingsID::Input_Hotkey_SpeedFactor50_InputType, SettingsID::Input_Hotkey_SpeedFactor50_Name, SettingsID::Input_Hotkey_SpeedFactor50_Data, SettingsID::Input_Hotkey_SpeedFactor50_ExtraData },
-        { {}, {}, {}, {}, SettingsID::Input_Hotkey_SpeedFactor75_InputType, SettingsID::Input_Hotkey_SpeedFactor75_Name, SettingsID::Input_Hotkey_SpeedFactor75_Data, SettingsID::Input_Hotkey_SpeedFactor75_ExtraData },
-        { {}, {}, {}, {}, SettingsID::Input_Hotkey_SpeedFactor100_InputType, SettingsID::Input_Hotkey_SpeedFactor100_Name, SettingsID::Input_Hotkey_SpeedFactor100_Data, SettingsID::Input_Hotkey_SpeedFactor100_ExtraData },
-        { {}, {}, {}, {}, SettingsID::Input_Hotkey_SpeedFactor125_InputType, SettingsID::Input_Hotkey_SpeedFactor125_Name, SettingsID::Input_Hotkey_SpeedFactor125_Data, SettingsID::Input_Hotkey_SpeedFactor125_ExtraData },
-        { {}, {}, {}, {}, SettingsID::Input_Hotkey_SpeedFactor150_InputType, SettingsID::Input_Hotkey_SpeedFactor150_Name, SettingsID::Input_Hotkey_SpeedFactor150_Data, SettingsID::Input_Hotkey_SpeedFactor150_ExtraData },
-        { {}, {}, {}, {}, SettingsID::Input_Hotkey_SpeedFactor175_InputType, SettingsID::Input_Hotkey_SpeedFactor175_Name, SettingsID::Input_Hotkey_SpeedFactor175_Data, SettingsID::Input_Hotkey_SpeedFactor175_ExtraData },
-        { {}, {}, {}, {}, SettingsID::Input_Hotkey_SpeedFactor200_InputType, SettingsID::Input_Hotkey_SpeedFactor200_Name, SettingsID::Input_Hotkey_SpeedFactor200_Data, SettingsID::Input_Hotkey_SpeedFactor200_ExtraData },
-        { {}, {}, {}, {}, SettingsID::Input_Hotkey_SpeedFactor225_InputType, SettingsID::Input_Hotkey_SpeedFactor225_Name, SettingsID::Input_Hotkey_SpeedFactor225_Data, SettingsID::Input_Hotkey_SpeedFactor225_ExtraData },
-        { {}, {}, {}, {}, SettingsID::Input_Hotkey_SpeedFactor250_InputType, SettingsID::Input_Hotkey_SpeedFactor250_Name, SettingsID::Input_Hotkey_SpeedFactor250_Data, SettingsID::Input_Hotkey_SpeedFactor250_ExtraData },
-        { {}, {}, {}, {}, SettingsID::Input_Hotkey_SpeedFactor275_InputType, SettingsID::Input_Hotkey_SpeedFactor275_Name, SettingsID::Input_Hotkey_SpeedFactor275_Data, SettingsID::Input_Hotkey_SpeedFactor275_ExtraData },
         { {}, {}, {}, {}, SettingsID::Input_Hotkey_SpeedFactor300_InputType, SettingsID::Input_Hotkey_SpeedFactor300_Name, SettingsID::Input_Hotkey_SpeedFactor300_Data, SettingsID::Input_Hotkey_SpeedFactor300_ExtraData },
         { {}, {}, {}, {}, SettingsID::Input_Hotkey_SaveState_InputType, SettingsID::Input_Hotkey_SaveState_Name, SettingsID::Input_Hotkey_SaveState_Data, SettingsID::Input_Hotkey_SaveState_ExtraData },
         { {}, {}, {}, {}, SettingsID::Input_Hotkey_LoadState_InputType, SettingsID::Input_Hotkey_LoadState_Name, SettingsID::Input_Hotkey_LoadState_Data, SettingsID::Input_Hotkey_LoadState_ExtraData },
@@ -245,8 +234,10 @@ void ControllerWidget::initializeProfileButtons()
 {
     this->addProfileButton->setText("");
     this->addProfileButton->setIcon(QIcon::fromTheme("add-line"));
+    this->addProfileButton->setToolTip("Create a profile from the current mapping");
     this->removeProfileButton->setText("");
     this->removeProfileButton->setIcon(QIcon::fromTheme("delete-bin-line"));
+    this->removeProfileButton->setToolTip("Delete the selected mapping profile");
 }
 
 void ControllerWidget::initializeMiscButtons()
@@ -865,9 +856,10 @@ void ControllerWidget::on_addProfileButton_clicked()
 
     section = this->getUserProfileSectionName(newProfile);
 
-    // add profile to UI
+    // New profiles duplicate the mapping currently on screen.
     this->addProfile(newProfile, section);
     this->profileComboBox->setCurrentText(newProfile);
+    this->SaveSettings(section);
 
     // add profile to settings
     profiles.push_back(newProfile.toStdString());
@@ -913,23 +905,20 @@ void ControllerWidget::on_removeProfileButton_clicked()
     // also remove it from the profiles list
     if (this->isSectionUserProfile(currentSection))
     {
-        std::string userProfile = this->profileComboBox->currentText().toStdString();
+        const QString userProfileName = this->profileComboBox->currentText();
+        const std::string userProfile = userProfileName.toStdString();
         std::vector<std::string> userProfiles = CoreSettingsGetStringListValue(SettingsID::Input_Profiles);
         std::vector<std::string>::iterator userProfilesIter;
 
         userProfilesIter = std::find(userProfiles.begin(), userProfiles.end(), userProfile);
         if (userProfilesIter != userProfiles.end())
-        {
             userProfiles.erase(userProfilesIter);
-        }
 
         CoreSettingsSetValue(SettingsID::Input_Profiles, userProfiles);
 
-        // remove item from UI
+        this->previousProfileComboBoxIndex = -1;
         this->profileComboBox->removeItem(this->profileComboBox->currentIndex());
-
-        // emit signal
-        emit this->UserProfileRemoved(this->profileComboBox->currentText(), currentSection);
+        emit this->UserProfileRemoved(userProfileName, currentSection);
     }
 
     // switch back to main profile when deleting

@@ -948,17 +948,7 @@ void SettingsDialog::commonHotkeySettings(SettingsDialogAction action)
 
     std::vector<keybinding> keybindings_SpeedFactor =
     {
-        { this->speedFactor25KeyButton, SettingsID::KeyBinding_SpeedFactor25 },
-        { this->speedFactor50KeyButton, SettingsID::KeyBinding_SpeedFactor50 },
-        { this->speedFactor75KeyButton, SettingsID::KeyBinding_SpeedFactor75 },
-        { this->speedFactor100KeyButton, SettingsID::KeyBinding_SpeedFactor100 },
-        { this->speedFactor125KeyButton, SettingsID::KeyBinding_SpeedFactor125 },
-        { this->speedFactor150KeyButton, SettingsID::KeyBinding_SpeedFactor150 },
-        { this->speedFactor175KeyButton, SettingsID::KeyBinding_SpeedFactor175 },
-        { this->speedFactor200KeyButton, SettingsID::KeyBinding_SpeedFactor200 },
-        { this->speedFactor225KeyButton, SettingsID::KeyBinding_SpeedFactor225 },
-        { this->speedFactor250KeyButton, SettingsID::KeyBinding_SpeedFactor250 },
-        { this->speedFactor275KeyButton, SettingsID::KeyBinding_SpeedFactor275 },
+        // Reuse the legacy 300% setting as the persisted Fast Forward binding.
         { this->speedFactor300KeyButton, SettingsID::KeyBinding_SpeedFactor300 },
     };
 
@@ -1462,17 +1452,6 @@ void SettingsDialog::on_KeybindButton_KeybindingChanged(KeybindButton* button)
         this->pauseKeyButton,
         this->generateBitmapKeyButton,
         this->limitFPSKeyButton,
-        this->speedFactor25KeyButton,
-        this->speedFactor50KeyButton,
-        this->speedFactor75KeyButton,
-        this->speedFactor100KeyButton,
-        this->speedFactor125KeyButton,
-        this->speedFactor150KeyButton,
-        this->speedFactor175KeyButton,
-        this->speedFactor200KeyButton,
-        this->speedFactor225KeyButton,
-        this->speedFactor250KeyButton,
-        this->speedFactor275KeyButton,
         this->speedFactor300KeyButton,
         this->saveStateKeyButton,
         this->saveAsKeyButton, 

@@ -53,6 +53,8 @@
 #include <QTimer>
 #include <QDir>
 #include <QUrl>
+#include <QKeySequence>
+#include <SDL3/SDL.h>
 
 #ifdef KCA_DRAG_DROP
 #include <KUrlMimeData>
@@ -80,6 +82,61 @@
 
 using namespace UserInterface;
 using namespace Utilities;
+
+static SDL_Scancode qt_key_event_to_sdl_scancode(QKeyEvent* event)
+{
+#ifdef Q_OS_WIN
+    const quint32 nativeScanCode = event->nativeScanCode();
+    const quint32 nativeVirtualKey = event->nativeVirtualKey();
+
+    if (event->key() == Qt::Key_Shift)
+        return nativeScanCode == 0x36 ? SDL_SCANCODE_RSHIFT : SDL_SCANCODE_LSHIFT;
+    if (event->key() == Qt::Key_Control)
+    {
+        if (nativeScanCode == 0x11D || nativeVirtualKey == 0xA3) return SDL_SCANCODE_RCTRL;
+        return SDL_SCANCODE_LCTRL;
+    }
+    if (event->key() == Qt::Key_Alt || event->key() == Qt::Key_AltGr)
+    {
+        if (nativeScanCode == 0x138 || nativeVirtualKey == 0xA5 || event->key() == Qt::Key_AltGr) return SDL_SCANCODE_RALT;
+        return SDL_SCANCODE_LALT;
+    }
+    if (event->key() == Qt::Key_Meta || event->key() == Qt::Key_Super_L || event->key() == Qt::Key_Super_R)
+    {
+        if (nativeScanCode == 0x15C || nativeVirtualKey == 0x5C || event->key() == Qt::Key_Super_R) return SDL_SCANCODE_RGUI;
+        return SDL_SCANCODE_LGUI;
+    }
+#endif
+    return static_cast<SDL_Scancode>(Utilities::QtKeyToSdl3Key(event->key()));
+}
+
+static QKeySequence qt_key_event_to_sequence(QKeyEvent* event)
+{
+    switch (event->key())
+    {
+        case Qt::Key_Control: case Qt::Key_Shift: case Qt::Key_Alt:
+        case Qt::Key_AltGr: case Qt::Key_Super_L: case Qt::Key_Super_R:
+            return QKeySequence(event->modifiers());
+        case Qt::Key_AsciiTilde: case Qt::Key_Exclam: case Qt::Key_At:
+        case Qt::Key_NumberSign: case Qt::Key_Dollar: case Qt::Key_Percent:
+        case Qt::Key_AsciiCircum: case Qt::Key_Ampersand: case Qt::Key_Asterisk:
+        case Qt::Key_ParenLeft: case Qt::Key_ParenRight: case Qt::Key_Underscore:
+        case Qt::Key_Plus: case Qt::Key_BraceLeft: case Qt::Key_BraceRight:
+        case Qt::Key_Bar: case Qt::Key_Colon: case Qt::Key_QuoteDbl:
+        case Qt::Key_Question: case Qt::Key_Greater: case Qt::Key_Less:
+            return QKeySequence(event->key());
+        default:
+            return QKeySequence(event->key() | event->modifiers());
+    }
+}
+
+static bool is_fast_forward_key_event(QKeyEvent* event)
+{
+    const QKeySequence configured(QString::fromStdString(
+        CoreSettingsGetStringValue(SettingsID::KeyBinding_SpeedFactor300)));
+    return !configured.isEmpty() &&
+           qt_key_event_to_sequence(event).matches(configured) == QKeySequence::ExactMatch;
+}
 
 MainWindow::MainWindow() : QMainWindow(nullptr)
 {
@@ -838,7 +895,8 @@ void MainWindow::updateActions(bool inEmulation, bool isPaused)
     this->action_System_LimitFPS->setEnabled(inEmulation && !CoreHasInitNetplay());
     this->action_System_LimitFPS->setShortcut(QKeySequence(keyBinding));
     this->action_System_LimitFPS->setChecked(CoreIsSpeedLimiterEnabled());
-    this->menuSpeedFactor->setEnabled(inEmulation && !CoreHasInitNetplay());
+    this->menuSpeedFactor->setEnabled(false);
+    this->menuSpeedFactor->menuAction()->setVisible(false);
     keyBinding = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::KeyBinding_SaveState));
     this->action_System_SaveState->setEnabled(inEmulation);
     this->action_System_SaveState->setShortcut(QKeySequence(keyBinding));
@@ -860,29 +918,6 @@ void MainWindow::updateActions(bool inEmulation, bool isPaused)
     this->action_System_GSButton->setShortcut(QKeySequence(keyBinding));
     keyBinding = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::KeyBinding_Exit));
     this->action_System_Exit->setShortcut(QKeySequence(keyBinding));
-
-    // configure keybindings for speed factor
-    QAction* speedActions[] =
-    {
-        this->actionSpeed25, this->actionSpeed50, this->actionSpeed75,
-        this->actionSpeed100, this->actionSpeed125, this->actionSpeed150,
-        this->actionSpeed175, this->actionSpeed200, this->actionSpeed225,
-        this->actionSpeed250, this->actionSpeed275, this->actionSpeed300
-    };
-    SettingsID speedKeybindSettingsId[] =
-    {
-        SettingsID::KeyBinding_SpeedFactor25, SettingsID::KeyBinding_SpeedFactor50,
-        SettingsID::KeyBinding_SpeedFactor75, SettingsID::KeyBinding_SpeedFactor100,
-        SettingsID::KeyBinding_SpeedFactor125, SettingsID::KeyBinding_SpeedFactor150,
-        SettingsID::KeyBinding_SpeedFactor175, SettingsID::KeyBinding_SpeedFactor200,
-        SettingsID::KeyBinding_SpeedFactor225, SettingsID::KeyBinding_SpeedFactor250,
-        SettingsID::KeyBinding_SpeedFactor275, SettingsID::KeyBinding_SpeedFactor300
-    };
-    for (int i = 0; i < 12; i++)
-    {
-        keyBinding = QString::fromStdString(CoreSettingsGetStringValue(speedKeybindSettingsId[i]));
-        speedActions[i]->setShortcut(QKeySequence(keyBinding));
-    }
 
     // configure keybindings for save slots
     SettingsID slotKeybindSettingsId[] =
@@ -1444,10 +1479,29 @@ void MainWindow::on_EventFilter_KeyPressed(QKeyEvent *event)
         return;
     }
 
-    int key = Utilities::QtKeyToSdl3Key(event->key());
-    int mod = Utilities::QtModKeyToSdl3ModKey(event->modifiers());
+    // Qt emits synthetic KeyRelease + KeyPress pairs while a key is held
+    // for keyboard auto-repeat. Forwarding those releases to Mupen creates
+    // a tiny false-up window that an N64 controller poll can observe.
+    // Only the initial physical press and final physical release should
+    // mutate emulated controller state.
+    if (event->isAutoRepeat())
+    {
+        return;
+    }
 
-    CoreSetKeyDown(key, mod);
+    if (!CoreHasInitNetplay() && is_fast_forward_key_event(event))
+    {
+        if (!this->ui_FastForwardHeld && CoreSetSpeedFactor(400))
+        {
+            this->ui_FastForwardHeld = true;
+            this->ui_FastForwardTriggerKey = event->key();
+        }
+        return;
+    }
+
+    const SDL_Scancode key = qt_key_event_to_sdl_scancode(event);
+    const int mod = Utilities::QtModKeyToSdl3ModKey(event->modifiers());
+    CoreSetKeyDown(static_cast<int>(key), mod);
 }
 
 void MainWindow::on_EventFilter_KeyReleased(QKeyEvent *event)
@@ -1458,10 +1512,23 @@ void MainWindow::on_EventFilter_KeyReleased(QKeyEvent *event)
         return;
     }
 
-    int key = Utilities::QtKeyToSdl3Key(event->key());
-    int mod = Utilities::QtModKeyToSdl3ModKey(event->modifiers());
+    // Ignore the synthetic KeyRelease half of Qt's auto-repeat pair.
+    if (event->isAutoRepeat())
+    {
+        return;
+    }
 
-    CoreSetKeyUp(key, mod);
+    if (this->ui_FastForwardHeld && event->key() == this->ui_FastForwardTriggerKey)
+    {
+        CoreSetSpeedFactor(100);
+        this->ui_FastForwardHeld = false;
+        this->ui_FastForwardTriggerKey = 0;
+        return;
+    }
+
+    const SDL_Scancode key = qt_key_event_to_sdl_scancode(event);
+    const int mod = Utilities::QtModKeyToSdl3ModKey(event->modifiers());
+    CoreSetKeyUp(static_cast<int>(key), mod);
 }
 
 void MainWindow::on_EventFilter_FileDropped(QDropEvent *event)
@@ -1523,6 +1590,13 @@ void MainWindow::on_EventFilter_FileDropped(QDropEvent *event)
 
 void MainWindow::on_QGuiApplication_applicationStateChanged(Qt::ApplicationState state)
 {
+    if (state != Qt::ApplicationActive && this->ui_FastForwardHeld)
+    {
+        if (CoreIsEmulationRunning()) CoreSetSpeedFactor(100);
+        this->ui_FastForwardHeld = false;
+        this->ui_FastForwardTriggerKey = 0;
+    }
+
     bool isRunning = CoreIsEmulationRunning();
     bool isPaused = CoreIsEmulationPaused();
 
